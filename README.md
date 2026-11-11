@@ -22,8 +22,8 @@ A practical TypeScript implementation demonstrating gRPC concepts with an Addres
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/prince981620/grpc-learn.git
-cd grpc-learn
+git clone https://github.com/princedotrs/grpc-with-protobuf.git
+cd grpc-with-protobuf
 ```
 
 2. Install dependencies:
