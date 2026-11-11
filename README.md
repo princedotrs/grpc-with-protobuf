@@ -1,122 +1,18 @@
-# gRPC Learning From Scratch
+# grpc-with-protobuf: gRPC from scratch in TypeScript
 
-A practical TypeScript implementation demonstrating gRPC concepts with an Address Book service. This project showcases how to build a complete gRPC server with Protocol Buffers, TypeScript type generation, and CRUD operations.
+A small gRPC server in TypeScript with an address-book service defined in Protocol Buffers. It's the groundwork for streaming Solana data over gRPC (Yellowstone / Geyser): the same `.proto` files, generated types and call patterns, without the blockchain noise.
 
-## 🎯 What You'll Learn
+What you'll find here:
 
-- Setting up a gRPC server with TypeScript
-- Defining services with Protocol Buffers
-- Implementing unary RPC methods
-- Generating TypeScript types from .proto files
-- Building a complete CRUD API with gRPC
+- defining messages and a service in a `.proto` file
+- loading the schema at runtime with `@grpc/proto-loader`
+- generating TypeScript types from the schema so every handler is typed
+- implementing unary RPCs on a `@grpc/grpc-js` server
+- calling the service from the command line with `grpcurl`
 
-## 📋 Prerequisites
-
-- Node.js (v14 or higher)
-- npm or yarn
-- Basic knowledge of TypeScript
-
-## 🚀 Getting Started
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/princedotrs/grpc-with-protobuf.git
-cd grpc-with-protobuf
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Build and start the server:
-```bash
-npm start
-```
-
-The gRPC server will start running on `localhost:50051`.
-
-## 📁 Project Structure
-
-```
-grpc-learn/
-├── src/
-│   ├── a.proto                    # Protocol Buffer definitions
-│   ├── index.ts                   # Main server implementation
-│   └── generated/                 # Auto-generated TypeScript types
-│       ├── a.ts                   # Main proto types
-│       └── addressbook/           # Service-specific types
-│           ├── AddressBookService.ts
-│           ├── Person.ts
-│           ├── PersonList.ts
-│           ├── Empty.ts
-│           ├── GetPersonByNameRequest.ts
-│           └── GetPersonByAgeRequest.ts
-├── dist/                          # Compiled JavaScript output
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-## 🛠 API Reference
-
-The Address Book service provides the following RPC methods:
-
-### AddPerson
-Adds a new person to the address book.
-- **Request**: `Person { name: string, age: number }`
-- **Response**: `Person`
-
-### GetAllPersons
-Retrieves all persons from the address book.
-- **Request**: `Empty {}`
-- **Response**: `PersonList { people: Person[] }`
-
-### GetPersonByName
-Finds a person by their name.
-- **Request**: `GetPersonByNameRequest { name: string }`
-- **Response**: `Person`
-
-### GetPersonsByAge
-Finds all persons with a specific age.
-- **Request**: `GetPersonByAgeRequest { age: number }`
-- **Response**: `PersonList { people: Person[] }`
-
-### DeletePersonByName
-Removes a person from the address book by name.
-- **Request**: `GetPersonByNameRequest { name: string }`
-- **Response**: `Person` (the deleted person)
-
-## 🔧 Protocol Buffer Schema
-
-The service is defined using Protocol Buffers v3:
+## The service
 
 ```protobuf
-syntax = "proto3";
-
-package addressbook;
-
-message Person {
-  string name = 1;
-  int32 age = 2;
-}
-
-message GetPersonByNameRequest {
-  string name = 1;
-}
-
-message GetPersonByAgeRequest {
-  int32 age = 1;
-}
-
-message PersonList {
-  repeated Person people = 1;
-}
-
-message Empty {}
-
 service AddressBookService {
   rpc AddPerson(Person) returns (Person);
   rpc GetAllPersons(Empty) returns (PersonList);
@@ -126,60 +22,59 @@ service AddressBookService {
 }
 ```
 
-## 🧪 Testing the API
+`Person` is `{ name: string, age: int32 }`. The full schema is in [`src/a.proto`](src/a.proto).
 
-You can test the gRPC server using various gRPC clients:
+## How it works
 
-### Using grpcurl (if installed)
+1. **Schema.** `src/a.proto` defines the messages and the `AddressBookService`.
+2. **Types.** `src/generated/` holds TypeScript types generated from the schema with `proto-loader-gen-types`, so the handlers in `src/index.ts` are typed as `AddressBookServiceHandlers`.
+3. **Server.** `src/index.ts` loads the `.proto` at runtime, registers one handler per RPC and listens on `0.0.0.0:50051`. People are kept in an in-memory array, so data resets when the server restarts.
+
+To regenerate the types after changing the schema:
+
 ```bash
-# Add a person
-grpcurl -plaintext -d '{"name": "John Doe", "age": 30}' localhost:50051 addressbook.AddressBookService/AddPerson
-
-# Get all persons
-grpcurl -plaintext -d '{}' localhost:50051 addressbook.AddressBookService/GetAllPersons
-
-# Get person by name
-grpcurl -plaintext -d '{"name": "John Doe"}' localhost:50051 addressbook.AddressBookService/GetPersonByName
+npx proto-loader-gen-types --grpcLib=@grpc/grpc-js --outDir=src/generated src/a.proto
 ```
 
-### Using Postman or Insomnia
-1. Create a new gRPC request
-2. Import the proto file (`src/a.proto`)
-3. Connect to `localhost:50051`
-4. Test the available methods
+## Run it
 
-## 🏗 Development
+Prerequisites: Node.js 18+, and [grpcurl](https://github.com/fullstorydev/grpcurl) to call the server.
 
-### Building the Project
 ```bash
-# Compile TypeScript
-npx tsc -b
-
-# Run the compiled JavaScript
-node dist/index.js
+git clone https://github.com/princedotrs/grpc-with-protobuf.git
+cd grpc-with-protobuf
+npm install
+npm start          # compiles and starts the server on port 50051
 ```
 
-### Project Scripts
-- `npm start` - Build and start the server
-- `npm test` - Run tests (not implemented yet)
+In another terminal (the server doesn't enable reflection, so pass the schema with `-proto`):
 
-## 📚 Key Technologies
+```bash
+grpcurl -plaintext -import-path src -proto a.proto \
+  -d '{"name": "Ada", "age": 30}' localhost:50051 addressbook.AddressBookService/AddPerson
 
-- **[@grpc/grpc-js](https://www.npmjs.com/package/@grpc/grpc-js)** - Pure JavaScript gRPC implementation
-- **[@grpc/proto-loader](https://www.npmjs.com/package/@grpc/proto-loader)** - Protocol Buffer loader for gRPC
-- **TypeScript** - Type-safe JavaScript development
-- **Protocol Buffers** - Language-neutral data serialization
+grpcurl -plaintext -import-path src -proto a.proto \
+  -d '{}' localhost:50051 addressbook.AddressBookService/GetAllPersons
 
-## 🎓 Learning Resources
+grpcurl -plaintext -import-path src -proto a.proto \
+  -d '{"age": 30}' localhost:50051 addressbook.AddressBookService/GetPersonsByAge
+```
 
-- [gRPC Official Documentation](https://grpc.io/docs/)
-- [Protocol Buffers Guide](https://developers.google.com/protocol-buffers)
-- [gRPC Node.js Tutorial](https://grpc.io/docs/languages/node/)
+## Project layout
 
-## 🤝 Contributing
+```
+src/
+├── a.proto        # messages and service
+├── index.ts       # server and handlers
+└── generated/     # TypeScript types generated from a.proto
+```
 
-Feel free to fork this repository and submit pull requests for improvements or additional examples!
+## Ideas to extend it
 
-## 📄 License
+- Add a server-streaming RPC that pushes every new person to subscribers, the same pattern Yellowstone uses for transactions
+- Write a typed TypeScript client
+- Persist people in SQLite or Postgres
 
-This project is licensed under the ISC License.
+## License
+
+MIT
